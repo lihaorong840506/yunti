@@ -24,6 +24,7 @@ import { ComponentsMembersService } from '@/components-members/components-member
 import { ComponentsVersionsService } from '@/components-versions/components-versions.service';
 import serverConfig from '@/config/server.config';
 import { GitService } from '@/git/git.service';
+import { MergeRequestService } from '@/merge-requests/merge-requests.service';
 import { sortPackages } from '@/packages/utils';
 import { ILoginUser } from '@/types';
 
@@ -40,7 +41,8 @@ export class ComponentsService {
     private config: ConfigType<typeof serverConfig>,
     private readonly gitService: GitService,
     private readonly componentsMembersService: ComponentsMembersService,
-    private readonly componentsVersionsService: ComponentsVersionsService
+    private readonly componentsVersionsService: ComponentsVersionsService,
+    private readonly mergeRequestService: MergeRequestService
   ) {}
   logger = new Logger('ComponentsService');
 
@@ -248,6 +250,7 @@ export class ComponentsService {
       });
 
       await queryRunner.commitTransaction();
+      await this.mergeRequestService.refreshMergeRequest(loginUser, tree);
     } catch (error) {
       // since we have errors lets rollback the changes we made
       this.logger.error(`${message} failed`, error);
@@ -316,6 +319,7 @@ export class ComponentsService {
       });
 
       await queryRunner.commitTransaction();
+      await this.mergeRequestService.refreshMergeRequest(loginUser, tree);
     } catch (error) {
       // since we have errors lets rollback the changes we made
       this.logger.error(`${message} failed`, error);
@@ -354,11 +358,13 @@ export class ComponentsService {
     if (!status) {
       throw new CustomException('NOTHING_TO_COMMIT', 'nothing to commit, working tree clean', 400);
     }
-    return this.gitService.commitNt(tree, {
+    const commitResult = await this.gitService.commitNt(tree, {
       committer: loginUser,
       tables: [Component.tableName, ComponentVersion.tableName],
       message: `Update component ${id}: ${message}`,
     });
+    await this.mergeRequestService.refreshMergeRequest(loginUser, tree);
+    return commitResult;
   }
 
   async releaseComponent(tree: string, loginUser: ILoginUser, release: ReleaseComponentInput) {
@@ -405,6 +411,7 @@ export class ComponentsService {
           message: `${Component.tableName}: ${message}`,
         });
         commitId = hash;
+        await this.mergeRequestService.refreshMergeRequest(loginUser, tree);
       } else {
         const logs = await this.gitService.listLog(tree, { take: 1 });
         commitId = logs[0].hash;
@@ -428,7 +435,7 @@ export class ComponentsService {
       });
 
       await queryRunner.commitTransaction();
-
+      await this.mergeRequestService.refreshMergeRequest(loginUser, tree);
       return componentVersion;
     } catch (error) {
       this.logger.error(`${message} failed =>`, error);

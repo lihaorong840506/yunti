@@ -23,6 +23,7 @@ import {
 import { ComponentsVersionsService } from '@/components-versions/components-versions.service';
 import serverConfig from '@/config/server.config';
 import { GitService } from '@/git/git.service';
+import { MergeRequestService } from '@/merge-requests/merge-requests.service';
 import { sortPackages } from '@/packages/utils';
 import { PagesService } from '@/pages/pages.service';
 import { ILoginUser } from '@/types';
@@ -42,7 +43,8 @@ export class AppsService {
     private readonly gitService: GitService,
     private readonly appsMembersService: AppsMembersService,
     private readonly pagesService: PagesService,
-    private readonly componentsVersionsService: ComponentsVersionsService
+    private readonly componentsVersionsService: ComponentsVersionsService,
+    private readonly mergeRequestService: MergeRequestService
   ) {}
   logger = new Logger('AppsService');
 
@@ -250,6 +252,7 @@ export class AppsService {
         tables: [App.tableName],
         message,
       });
+      await this.mergeRequestService.refreshMergeRequest(loginUser, tree);
     } catch (error) {
       // since we have errors lets rollback the changes we made
       this.logger.error(`${message} failed`, error);
@@ -288,6 +291,7 @@ export class AppsService {
       tables: [App.tableName],
       message: `fix app(${id}) namespace: ${oldNamespace} => ${namespace}`,
     });
+    await this.mergeRequestService.refreshMergeRequest(loginUser, tree);
     return appsRepository.findOneBy({ id });
   }
 
@@ -335,6 +339,7 @@ export class AppsService {
         tables: [App.tableName],
         message,
       });
+      await this.mergeRequestService.refreshMergeRequest(loginUser, tree);
     } catch (error) {
       // since we have errors lets rollback the changes we made
       this.logger.error(`${message} failed`, error);

@@ -7,6 +7,7 @@ import { MemberRole } from '@/common/models/member-role.enum';
 import treeDataSources from '@/common/tree-data-sources';
 import { CustomException, checkUserTreeMutationPermision, genNanoid } from '@/common/utils';
 import { GitService } from '@/git/git.service';
+import { MergeRequestService } from '@/merge-requests/merge-requests.service';
 import { ILoginUser } from '@/types';
 
 import { NewPageInput } from './dtos/new-page.input';
@@ -17,7 +18,8 @@ import PageSchema from './templates/schema';
 export class PagesService {
   constructor(
     private readonly gitService: GitService,
-    private readonly appsMembersService: AppsMembersService
+    private readonly appsMembersService: AppsMembersService,
+    private readonly mergeRequestService: MergeRequestService
   ) {}
 
   logger = new Logger('PagesService');
@@ -148,6 +150,7 @@ export class PagesService {
       tables: [Page.tableName],
       message: `Delete page ${id}.`,
     });
+    await this.mergeRequestService.refreshMergeRequest(loginUser, tree);
     return res;
   }
 
@@ -162,10 +165,12 @@ export class PagesService {
     if (!status) {
       throw new CustomException('NOTHING_TO_COMMIT', 'nothing to commit, working tree clean', 400);
     }
-    return this.gitService.commitNt(tree, {
+    const commitResult = await this.gitService.commitNt(tree, {
       committer: loginUser,
       tables: [Page.tableName],
       message: `Update page ${id}: ${message}`,
     });
+    await this.mergeRequestService.refreshMergeRequest(loginUser, tree);
+    return commitResult;
   }
 }

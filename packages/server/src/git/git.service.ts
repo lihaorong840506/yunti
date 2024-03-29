@@ -323,7 +323,7 @@ order by p.date desc;`);
     await queryRunner.query(`CALL DOLT_ADD(${this.getSqlArrayParam(tables)});`);
     try {
       const res = await queryRunner.query(
-        `CALL DOLT_COMMIT('-m', '${message}', '--author', '${author}');`
+        `CALL DOLT_COMMIT('-Am', '${message}', '--author', '${author}');`
       );
       this.logger.log(`commit "${message}" successfully => ${res[0]?.hash}`);
       return res[0];

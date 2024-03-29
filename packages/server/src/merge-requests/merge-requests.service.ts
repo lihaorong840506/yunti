@@ -535,9 +535,7 @@ export class MergeRequestService {
           }
           sql += ');';
           await queryRunner.query(sql);
-          sql = `CALL dolt_add("-A")`;
-          await queryRunner.query(sql);
-          sql = `CALL DOLT_COMMIT('-m', 'Merge branch ${mergeRequest.sourceBranchName} for resolve conflict');`;
+          sql = `CALL DOLT_COMMIT('-Am', 'Merge branch ${mergeRequest.sourceBranchName} for resolve conflict');`;
           await queryRunner.query(sql);
           mergeRequest.mergeRequestStatus = MergeRequestStatus.Merged;
         } else {
@@ -633,8 +631,12 @@ export class MergeRequestService {
       mergeRequest.conflictDiffSchema = JSON.stringify(confilctSchemaList);
     }
 
-    if (mergeRequest.conflictDiffData || mergeRequest.conflictDiffSchema) {
+    if (confilctDataList.length > 0 || confilctSchemaList.length > 0) {
       mergeRequest.mergeRequestStatus = MergeRequestStatus.Conflicted;
+    } else {
+      mergeRequest.mergeRequestStatus = MergeRequestStatus.Openning;
+      mergeRequest.conflictDiffSchema = '';
+      mergeRequest.conflictDiffData = '';
     }
 
     sql = `CALL DOLT_CHECKOUT('${mergeRequest.targetBranchName}');`;
@@ -697,6 +699,35 @@ export class MergeRequestService {
           'Only MR creator, Branch owner, App onwer and App maintainer can operate the MR',
           403
         );
+      }
+    }
+  }
+
+  async refreshMergeRequest(user: ILoginUser, sourceBranchName: string) {
+    const mergeRequestRepository = await this.getMergeRequestRepository();
+    const mergeRequests = await mergeRequestRepository.find({
+      where: [
+        { sourceBranchName, mergeRequestStatus: MergeRequestStatus.Openning },
+        { sourceBranchName, mergeRequestStatus: MergeRequestStatus.Conflicted },
+        { targetBranchName: sourceBranchName, mergeRequestStatus: MergeRequestStatus.Openning },
+        { targetBranchName: sourceBranchName, mergeRequestStatus: MergeRequestStatus.Conflicted },
+      ],
+    });
+    for (const mergeRequest of mergeRequests) {
+      const dataSource = await treeDataSources.getDataSource(mergeRequest.targetBranchName);
+      const queryRunner = dataSource.createQueryRunner();
+      try {
+        await queryRunner.connect();
+        await queryRunner.startTransaction();
+        await this.getConflictInfo(mergeRequest, queryRunner);
+        await queryRunner.rollbackTransaction();
+        mergeRequest.updaterId = user.id;
+        await mergeRequestRepository.save(mergeRequest);
+      } catch (error) {
+        await queryRunner.rollbackTransaction();
+        throw error;
+      } finally {
+        await queryRunner.release();
       }
     }
   }
