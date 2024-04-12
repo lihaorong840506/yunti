@@ -60,7 +60,9 @@ export const setTree = (id: string, tree: string, sessionOnly = false) => {
   const trees = getTrees();
   trees[id] = tree;
   window.sessionStorage.setItem(TREES_KEY, JSON.stringify(trees));
-  !sessionOnly && window.localStorage.setItem(TREES_KEY, JSON.stringify(trees));
+  if (!sessionOnly) {
+    window.localStorage.setItem(TREES_KEY, JSON.stringify(trees));
+  }
   return tree;
 };
 

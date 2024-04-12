@@ -8,7 +8,7 @@ import {
 import qs from 'query-string';
 import { useMemo } from 'react';
 
-export { initSdk, sdk } from '@yuntijs/yunti-bff-sdk';
+export { sdk } from '@yuntijs/yunti-bff-sdk';
 
 export interface SdkBaseOptions extends Options {
   /** 分支版本等 */
@@ -33,6 +33,13 @@ export const initSdkBase = (options: SdkBaseOptions = {}) => {
   // 注意：切记 SWR 缓存的唯一依据是 key，一切变量都需要放到 key 中，否则即使是不同的 client，key 相同的话，
   // 也会以第一次调用产生的实例进行数据请求
   const newSdk = withHooks ? getSdkWithHooks(newClient, tree) : getSdk(newClient);
+  return newSdk;
+};
+
+/** 初始化 sdk 实例 */
+export const initSdk = (options: SdkOptions = {}) => {
+  const { url, requestConfig, tree } = options;
+  const newSdk = initSdkBase({ withHooks: false, url, requestConfig, tree });
   return newSdk;
 };
 
