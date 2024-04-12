@@ -1,6 +1,7 @@
 # 创建合并分支请求
 mutation createMergeRequest($mergeRequestInput: MergeRequestInput!) {
   createMergeRequest(mergeRequestParam: $mergeRequestInput) {
+    id,
     sourceBranchName,
     targetBranchName,
     title,
